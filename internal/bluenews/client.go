@@ -1,6 +1,7 @@
 package bluenews
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -23,16 +24,20 @@ func removeTreeClasses(s *goquery.Selection) {
 }
 
 func fixLinks(s *goquery.Selection) {
-	s.Find("h2 > a").Each(func(i int, sel *goquery.Selection) {
+	s.Find("a").Each(func(i int, sel *goquery.Selection) {
 		href, ok := sel.Attr("href")
 		if ok {
-			sel.SetAttr("href", BASE_URL+href)
+
+			if href[0] == '/' {
+				sel.SetAttr("href", BASE_URL+href)
+			}
+
 		}
 	})
 }
 
 func parseBody(rc io.ReadCloser) []Article {
-	articles := make([]Article, 2)
+	var articles []Article
 
 	doc, err := goquery.NewDocumentFromReader(rc)
 	if err != nil {
@@ -59,13 +64,11 @@ func parseBody(rc io.ReadCloser) []Article {
 			continue
 		}
 
-		log.Println("Appending another one")
-
-		articles[i] = Article{
+		articles = append(articles, Article{
 			Title:       title,
 			PubDate:     time.Now(),
 			ContentHTML: content,
-		}
+		})
 	}
 
 	log.Printf("Final number of articles: %d", len(articles))
@@ -73,8 +76,11 @@ func parseBody(rc io.ReadCloser) []Article {
 	return articles
 }
 
-func FromDate() []Article {
-	resp, err := http.Get("https://www.bluesnews.com/cgi-bin/blammo.pl?mode=archive&display=20240825")
+func FromDate(date time.Time) []Article {
+	stringDate := fmt.Sprintf("%d%02d%02d", date.Year(), date.Month(), date.Day())
+	url := fmt.Sprintf("https://www.bluesnews.com/cgi-bin/blammo.pl?mode=archive&display=%s", stringDate)
+
+	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatalln(err)
 	}

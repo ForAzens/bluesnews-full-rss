@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"log"
+	"time"
 
 	"github.com/ForAzens/bluesnews-full-rss/internal/bluenews"
-	"github.com/ForAzens/bluesnews-full-rss/internal/feed"
+	"github.com/ForAzens/bluesnews-full-rss/internal/persistence"
 	"github.com/ForAzens/bluesnews-full-rss/internal/serve"
 )
 
@@ -13,27 +14,36 @@ var BASE_URL = "https://www.bluesnews.com"
 
 func main() {
 	var mode string
+	var lastDays int
 	flag.StringVar(&mode, "mode", "serve", "Different modes to use: 'serve' or 'fetch'")
+	flag.IntVar(&lastDays, "lastDays", 7, "To retrieve the articles of the last X days. Default: 7")
+
 	flag.Parse()
 
 	switch mode {
 	case "serve":
-		articles := bluenews.FromDate()
-		log.Println("number of articles")
-		log.Println(len(articles))
-
-		rss := feed.NewRss()
-		for i := range articles {
-			article := articles[i]
-			rss.AddItem(feed.Item{
-				Title:   article.Title,
-				Content: article.ContentHTML,
-			})
-		}
-		serve.CreateAndStartServer("localhost:8080", rss)
+		serve.CreateAndStartServer("localhost:8080", bluenews.GetArticlesFromFS)
 	case "fetch":
-    // TODO: Fetch articles and save it in local filesystem or database
-		log.Println("Fetching articles")
+		for i := lastDays; i >= 0; i-- {
+      date := time.Now().AddDate(0, 0, -i)
+      log.Printf("Fetching articles for date: %v", date)
+
+			articles := bluenews.FromDate(date)
+			log.Println("number of articles")
+			log.Println(len(articles))
+
+			for i := range articles {
+				article := articles[i]
+
+				err := persistence.WriteToFile(article.Title, article.PubDate, []byte(article.ContentHTML))
+				if err != nil {
+					log.Printf("Failed to save article for %v", article.PubDate)
+				}
+			}
+
+		}
+
+		log.Println("Fetching articles...")
 	default:
 		log.Fatalln("Unknown mode parameter")
 
