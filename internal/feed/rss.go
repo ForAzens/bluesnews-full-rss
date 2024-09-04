@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/xml"
 	"io"
-	"log"
 )
 
 type Rss struct {
-	XMLName xml.Name `xml:"rss"`
-	Version string   `xml:"version,attr"`
-	Channel Channel
+	XMLName      xml.Name `xml:"rss"`
+	Version      string   `xml:"version,attr"`
+  XmlnsContent string   `xml:"xmlns:content,attr"`
+	Channel      Channel
 }
 
 type Channel struct {
@@ -24,6 +24,7 @@ type Channel struct {
 type Item struct {
 	XMLName        xml.Name `xml:"item"`
 	Title          string   `xml:"title"`
+	Description    string   `xml:"description"`
 	Content        string   `xml:"-"`
 	ContentEncoded ContentEncoded
 }
@@ -48,7 +49,8 @@ func NewRssTest() Rss {
 
 func NewRss() Rss {
 	return Rss{
-		Version: "2.0",
+		Version:      "2.0",
+		XmlnsContent: "http://purl.org/rss/1.0/modules/content/",
 		Channel: Channel{
 			Title:       "",
 			Link:        "",
@@ -68,11 +70,11 @@ func (r *Rss) AddItem(item Item) {
 	item.ContentEncoded = ContentEncoded{
 		Content: item.Content,
 	}
-	log.Printf("Item added")
 	r.Channel.Items = append(r.Channel.Items, item)
 }
 
 func (r *Rss) EncodeToWriter(w io.Writer) error {
+	w.Write([]byte("<?xml version=\"1.0\" encoding=\"utf-8\"?>"))
 	enc := xml.NewEncoder(w)
 	defer enc.Close()
 	enc.Indent("  ", "    ")
