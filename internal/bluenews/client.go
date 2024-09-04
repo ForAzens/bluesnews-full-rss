@@ -41,8 +41,8 @@ func parseBody(rc io.ReadCloser) []Article {
 	articleSelection := doc.Find("h1.pill + div.row.no-gutter")
 	removeTreeClasses(articleSelection)
 	fixLinks(articleSelection)
-	// 	titleSelection := s.Prev()
-	// 	title := titleSelection.Text()
+
+	log.Printf("Number of articles scraped: %d", len(articleSelection.Nodes))
 
 	for i := range articleSelection.Nodes {
 		s := articleSelection.Eq(i)
@@ -59,12 +59,16 @@ func parseBody(rc io.ReadCloser) []Article {
 			continue
 		}
 
-		articles = append(articles, Article{
+		log.Println("Appending another one")
+
+		articles[i] = Article{
 			Title:       title,
 			PubDate:     time.Now(),
 			ContentHTML: content,
-		})
+		}
 	}
+
+	log.Printf("Final number of articles: %d", len(articles))
 
 	return articles
 }
