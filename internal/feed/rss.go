@@ -25,6 +25,7 @@ type Item struct {
 	XMLName        xml.Name `xml:"item"`
 	Title          string   `xml:"title"`
 	Description    string   `xml:"description"`
+	PubDate        string   `xml:"pubDate"`
 	Content        string   `xml:"-"`
 	ContentEncoded ContentEncoded
 }

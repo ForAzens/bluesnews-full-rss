@@ -3,6 +3,7 @@ package serve
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/ForAzens/bluesnews-full-rss/internal/feed"
 	"github.com/ForAzens/bluesnews-full-rss/internal/persistence"
@@ -21,6 +22,7 @@ func CreateAndStartServer(address string, am persistence.ArticleManager) {
 			rss.AddItem(feed.Item{
 				Title:   article.Title,
 				Content: article.ContentHTML,
+				PubDate: article.PubDate.Add(time.Hour * 19).Format("Mon, 02 Jan 2006 15:04:05 MST"),
 			})
 		}
 
