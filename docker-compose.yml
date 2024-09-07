@@ -1,0 +1,8 @@
+services:
+  bluesnews-rss:
+    build: .
+    ports: 
+      - "8080:8080"
+    restart: "unless-stopped"
+    environment:
+      BLUENEWS_RSS_ARTICLES_PATH: "/app/articles/" # Don't change unless you know what you're doing
