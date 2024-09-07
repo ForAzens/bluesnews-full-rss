@@ -7,16 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ForAzens/bluesnews-full-rss/internal/bluenews"
+	"github.com/ForAzens/bluesnews-full-rss/internal/bluesnews"
 )
 
 type FileSystemProvider struct {
 	ArticlesFolderPath string
 }
 
-func (fsp *FileSystemProvider) FetchAll() []bluenews.Article {
+func (fsp *FileSystemProvider) FetchAll() []bluesnews.Article {
 	filesPath, _ := os.ReadDir(fsp.ArticlesFolderPath)
-	var articles []bluenews.Article
+	var articles []bluesnews.Article
 
 	for i := range filesPath {
 		path := filesPath[i]
@@ -34,7 +34,7 @@ func (fsp *FileSystemProvider) FetchAll() []bluenews.Article {
 			continue
 		}
 
-		articles = append(articles, bluenews.Article{
+		articles = append(articles, bluesnews.Article{
 			Title:       titleFromFileName(path.Name()),
 			PubDate:     date,
 			ContentHTML: string(file),
@@ -44,7 +44,7 @@ func (fsp *FileSystemProvider) FetchAll() []bluenews.Article {
 	return articles
 }
 
-func (fsp *FileSystemProvider) Save(a bluenews.Article) error {
+func (fsp *FileSystemProvider) Save(a bluesnews.Article) error {
 	path := fsp.ArticlesFolderPath + generateFileName(a.Title, a.PubDate)
 
 	return os.WriteFile(path, []byte(a.ContentHTML), 0664)

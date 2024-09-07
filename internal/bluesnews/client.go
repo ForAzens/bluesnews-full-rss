@@ -1,4 +1,4 @@
-package bluenews
+package bluesnews
 
 import (
 	"fmt"

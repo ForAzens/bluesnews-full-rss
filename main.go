@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ForAzens/bluesnews-full-rss/internal/bluenews"
+	"github.com/ForAzens/bluesnews-full-rss/internal/bluesnews"
 	"github.com/ForAzens/bluesnews-full-rss/internal/environment"
 	"github.com/ForAzens/bluesnews-full-rss/internal/persistence"
 	"github.com/ForAzens/bluesnews-full-rss/internal/serve"
@@ -39,7 +39,7 @@ func main() {
 			date := time.Now().AddDate(0, 0, -i)
 			log.Printf("Fetching articles for date: %v", date)
 
-			articles := bluenews.FromDate(date)
+			articles := bluesnews.FromDate(date)
 			log.Println("number of articles")
 			log.Println(len(articles))
 

@@ -1,15 +1,15 @@
 package persistence
 
 import (
-	"github.com/ForAzens/bluesnews-full-rss/internal/bluenews"
+	"github.com/ForAzens/bluesnews-full-rss/internal/bluesnews"
 )
 
 type ArticleFetcher interface {
-	FetchAll() []bluenews.Article
+	FetchAll() []bluesnews.Article
 }
 
 type ArticleSaver interface {
-	Save(a bluenews.Article) error
+	Save(a bluesnews.Article) error
 }
 
 type ArticleManager interface {
