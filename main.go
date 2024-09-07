@@ -3,14 +3,17 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 	"time"
 
 	"github.com/ForAzens/bluesnews-full-rss/internal/bluenews"
+	"github.com/ForAzens/bluesnews-full-rss/internal/environment"
 	"github.com/ForAzens/bluesnews-full-rss/internal/persistence"
 	"github.com/ForAzens/bluesnews-full-rss/internal/serve"
 )
 
-var BASE_URL = "https://www.bluesnews.com"
+var BASE_URL = os.Getenv("BLUENEWS_RSS_BASE_URL")
+var ARTICLES_PATH = os.Getenv("BLUENEWS_RSS_ARTICLES_PATH")
 
 func main() {
 	var mode string
@@ -20,13 +23,21 @@ func main() {
 
 	flag.Parse()
 
+	config := environment.NewConfig()
+	config.SetBaseUrl(BASE_URL)
+	config.SetArticlesPath(ARTICLES_PATH)
+
+	persistenceProvider := persistence.FileSystemProvider{
+		ArticlesFolderPath: config.ArticlesPath,
+	}
+
 	switch mode {
 	case "serve":
-		serve.CreateAndStartServer("localhost:8080", bluenews.GetArticlesFromFS)
+		serve.CreateAndStartServer(config.BaseUrl, &persistenceProvider)
 	case "fetch":
 		for i := lastDays; i >= 0; i-- {
-      date := time.Now().AddDate(0, 0, -i)
-      log.Printf("Fetching articles for date: %v", date)
+			date := time.Now().AddDate(0, 0, -i)
+			log.Printf("Fetching articles for date: %v", date)
 
 			articles := bluenews.FromDate(date)
 			log.Println("number of articles")
@@ -35,12 +46,12 @@ func main() {
 			for i := range articles {
 				article := articles[i]
 
-				err := persistence.WriteToFile(article.Title, article.PubDate, []byte(article.ContentHTML))
+				err := persistenceProvider.Save(article)
 				if err != nil {
 					log.Printf("Failed to save article for %v", article.PubDate)
+					log.Println(err)
 				}
 			}
-
 		}
 
 		log.Println("Fetching articles...")
