@@ -9,7 +9,7 @@ import (
 type Rss struct {
 	XMLName      xml.Name `xml:"rss"`
 	Version      string   `xml:"version,attr"`
-  XmlnsContent string   `xml:"xmlns:content,attr"`
+	XmlnsContent string   `xml:"xmlns:content,attr"`
 	Channel      Channel
 }
 
@@ -52,9 +52,9 @@ func NewRss() Rss {
 		Version:      "2.0",
 		XmlnsContent: "http://purl.org/rss/1.0/modules/content/",
 		Channel: Channel{
-			Title:       "",
-			Link:        "",
-			Description: "",
+			Title:       "Bluesnews Full RSS",
+			Link:        "https://www.bluesnews.com/",
+			Description: "An alternative RSS server for Bluesnews which returns the entire day as an article.",
 			Items:       []Item{},
 		},
 	}
