@@ -102,6 +102,17 @@ func TestBluesnewsParser(t *testing.T) {
 		}
 	})
 
+	t.Run("Return error parsing date in title", func(t *testing.T) {
+		html := `<h1>InvaliDate</h1>`
+
+		parser := BluesnewsParser{}
+		content, err := parser.ParseHTML(strings.NewReader(html))
+
+		assertError(t, err, ErrTitleDateNotValid)
+		if content != nil {
+			t.Errorf("content should be nil")
+		}
+	})
 }
 
 func createDate(year int, month time.Month, day int) time.Time {

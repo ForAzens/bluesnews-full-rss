@@ -46,11 +46,11 @@ func (f BluesnewsFetcher) FetchArticle(date time.Time) (string, error) {
 	return string(body), nil
 }
 
-var ErrParsingHTMLInvalid = errors.New("The parsing of the HTML was invalid.")
+var ErrTitleDateNotValid = errors.New("The date in the title is not valid.")
 
 type BluesnewsParser struct{}
 
-func (p BluesnewsParser) ParseHTML(htmlReader io.Reader) (*Article, error) {
+func (p *BluesnewsParser) ParseHTML(htmlReader io.Reader) (*Article, error) {
 	doc, err := goquery.NewDocumentFromReader(htmlReader)
 
 	if err != nil {
@@ -62,7 +62,11 @@ func (p BluesnewsParser) ParseHTML(htmlReader io.Reader) (*Article, error) {
 	title := titleSelection.Text()
 	dateStr, _ := strings.CutSuffix(title, dateSelection.Text())
 	dateStr = strings.TrimSpace(dateStr)
-	pubDate, _ := time.Parse("Monday, Jan 02, 2006", dateStr)
+	pubDate, err := time.Parse("Monday, Jan 02, 2006", dateStr)
+
+	if err != nil {
+		return nil, ErrTitleDateNotValid
+	}
 
 	content, _ := titleSelection.Next().Html()
 
