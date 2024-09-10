@@ -47,6 +47,7 @@ func (f BluesnewsFetcher) FetchArticle(date time.Time) (string, error) {
 }
 
 var ErrTitleDateNotValid = errors.New("The date in the title is not valid.")
+var ErrArticleNotFound = errors.New("The article with the specific date was not found.")
 
 type BluesnewsParser struct{}
 
@@ -58,11 +59,8 @@ func (p *BluesnewsParser) ParseHTML(htmlReader io.Reader) (*Article, error) {
 	}
 
 	titleSelection := doc.Find("h1.pill")
-	dateSelection := titleSelection.Children().Eq(0)
 	title := titleSelection.Text()
-	dateStr, _ := strings.CutSuffix(title, dateSelection.Text())
-	dateStr = strings.TrimSpace(dateStr)
-	pubDate, err := time.Parse("Monday, Jan 02, 2006", dateStr)
+  pubDate, err := time.Parse("Monday, Jan 02, 2006", extractDateString(title))
 
 	if err != nil {
 		return nil, ErrTitleDateNotValid
@@ -71,6 +69,48 @@ func (p *BluesnewsParser) ParseHTML(htmlReader io.Reader) (*Article, error) {
 	content, _ := titleSelection.Next().Html()
 
 	return &Article{Title: title, PubDate: pubDate, ContentHTML: content}, nil
+}
+
+func (p *BluesnewsParser) GetHTMLArticleByDate(date time.Time, html string) (string, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+
+	if err != nil {
+		return "", err
+	}
+
+	titleSelection := doc.Find("h1.pill")
+
+	for i := range titleSelection.Nodes {
+		sel := titleSelection.Eq(i)
+		title := sel.Text()
+		pubDate, err := time.Parse("Monday, Jan 02, 2006", extractDateString(title))
+
+		if err != nil {
+			continue
+		}
+
+		if pubDate.Format("2006-01-02") == date.Format("2006-01-02") {
+			titleHtml, _ := goquery.OuterHtml(sel)
+			contentHtml, _ := goquery.OuterHtml(sel.Next())
+			return titleHtml + contentHtml, nil
+		}
+	}
+
+	return "", ErrArticleNotFound
+
+}
+
+// This function will only works with title like this example:
+// Input: Saturday, Sep 07, 2024 Some day Blablabla
+// Output: Saturday, Sep 07, 2024
+func extractDateString(s string) string {
+	parts := strings.SplitN(s, ",", 3)
+	if len(parts) < 3 {
+		return s
+	}
+
+	yearCleaned := strings.Split(parts[2], " ")[1]
+	return fmt.Sprintf("%s,%s, %s", parts[0], parts[1], yearCleaned)
 }
 
 type BluesnewsClient struct {

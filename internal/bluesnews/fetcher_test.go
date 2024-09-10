@@ -113,6 +113,38 @@ func TestBluesnewsParser(t *testing.T) {
 			t.Errorf("content should be nil")
 		}
 	})
+
+	t.Run("GetHTMLArticleByDate returns correct HTML code by date", func(t *testing.T) {
+		parser := BluesnewsParser{}
+		saturdayHtml := `<h1 class="pill">Saturday, Sep 07, 2024</h1><div class="row no-gutter">Saturday content</div>`
+		sundayHtml := `<h1 class="pill">Sunday, Sep 08, 2024 <span>Some day</span></h1><div class="row no-gutter">Sunday content</div>`
+		html := fmt.Sprintf("<div>%s%s</div>", saturdayHtml, sundayHtml)
+
+		contentSat, err := parser.GetHTMLArticleByDate(createDate(2024, 9, 7), html)
+
+		assertNoError(t, err)
+		if contentSat != saturdayHtml {
+			t.Errorf("got %s\nwant %s", contentSat, saturdayHtml)
+		}
+
+		contentSun, err := parser.GetHTMLArticleByDate(createDate(2024, 9, 8), html)
+		assertNoError(t, err)
+		if contentSun != sundayHtml {
+			t.Errorf("got %s\nwant %s", contentSun, sundayHtml)
+		}
+	})
+
+	t.Run("GetHTMLArticleByDate returns error when no date is found", func(t *testing.T) {
+		parser := BluesnewsParser{}
+		saturdayHtml := `<h1 class="pill">Saturday, Sep 07, 2024</h1><div class="row no-gutter">Saturday content</div>`
+		sundayHtml := `<h1 class="pill">Sunday, Sep 08, 2024 <span>Some day</span></h1><div class="row no-gutter">Sunday content</div>`
+		html := fmt.Sprintf("<div>%s%s</div>", saturdayHtml, sundayHtml)
+
+		_, err := parser.GetHTMLArticleByDate(createDate(2022, 1, 1), html)
+
+		assertError(t, err, ErrArticleNotFound)
+	})
+
 }
 
 func createDate(year int, month time.Month, day int) time.Time {
@@ -155,7 +187,7 @@ func createFetchFnWithError(err error) BluesnewsFetcher {
 func assertNoError(t testing.TB, got error) {
 	t.Helper()
 	if got != nil {
-		t.Fatal("got an error but didn't want one")
+		t.Fatalf("got an error but didn't want one: %v", got)
 	}
 }
 
