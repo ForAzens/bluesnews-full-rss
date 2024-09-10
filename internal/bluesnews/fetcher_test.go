@@ -12,16 +12,30 @@ import (
 )
 
 func TestBluesnewsClient(t *testing.T) {
-	fetcher := createSuccessFetchFn()
-	client := BluesnewsClient{fetcher: fetcher}
-	publishDate := time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)
+	publishDate := createDate(2024, 9, 7)
 
-	got, _ := client.GetArticleFromDate(publishDate)
-	want := Article{Title: "2023-12-31", PubDate: publishDate}
+	nextDate := publishDate.Add(time.Hour * 24)
+	article1 := createArticleHtml(publishDate, "", "Content here")
+	article2 := createArticleHtml(nextDate, "", "Next day content")
+	body := "<div>" + article1 + article2 + "</div>"
+	fetcher := createFetchFnWithBody(body)
+	client := BluesnewsClient{fetcher: fetcher, parser: BluesnewsParser{}}
 
-	if got != want {
-		t.Errorf("got %+v want %+v", got, want)
-	}
+	t.Run("gets the correct article in saturday", func(t *testing.T) {
+		got, err := client.GetArticleFromDate(publishDate)
+		want := &Article{Title: "Saturday, Sep 07, 2024", PubDate: publishDate, ContentHTML: "Content here"}
+
+		assertNoError(t, err)
+		assertArticle(t, got, want)
+	})
+
+	t.Run("gets the correct article in sunday", func(t *testing.T) {
+		got, err := client.GetArticleFromDate(nextDate)
+		want := &Article{Title: "Sunday, Sep 08, 2024", PubDate: nextDate, ContentHTML: "Next day content"}
+
+		assertNoError(t, err)
+		assertArticle(t, got, want)
+	})
 }
 
 func TestBluesnewsFetcher(t *testing.T) {
@@ -151,6 +165,18 @@ func createDate(year int, month time.Month, day int) time.Time {
 	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }
 
+// No matter the day, this fetchFn will always return the same body
+func createFetchFnWithBody(body string) BluesnewsFetcher {
+	return BluesnewsFetcher{
+		fetchFn: func(date time.Time) (*http.Response, error) {
+			respRecorder := httptest.ResponseRecorder{Code: 200, Body: bytes.NewBufferString(body)}
+			resp := respRecorder.Result()
+
+			return resp, nil
+		},
+	}
+}
+
 func createSuccessFetchFn() BluesnewsFetcher {
 	return BluesnewsFetcher{
 		fetchFn: func(date time.Time) (*http.Response, error) {
@@ -182,6 +208,19 @@ func createFetchFnWithError(err error) BluesnewsFetcher {
 			return nil, err
 		},
 	}
+}
+
+func createArticleHtml(date time.Time, spanTitle, content string) string {
+	dateStr := date.Format("Monday, Jan 02, 2006")
+	var h1Title string
+	if spanTitle == "" {
+		h1Title = fmt.Sprintf(`<h1 class="pill">%s</h1>`, dateStr)
+	} else {
+		h1Title = fmt.Sprintf(`<h1 class="pill">%s <span class="day-header-text">%s</span></h1>`, dateStr, spanTitle)
+	}
+	contentHtml := fmt.Sprintf(`<div class="row no-gutter">%s</div>`, content)
+
+	return h1Title + contentHtml
 }
 
 func assertNoError(t testing.TB, got error) {

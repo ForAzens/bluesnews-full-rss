@@ -60,7 +60,7 @@ func (p *BluesnewsParser) ParseHTML(htmlReader io.Reader) (*Article, error) {
 
 	titleSelection := doc.Find("h1.pill")
 	title := titleSelection.Text()
-  pubDate, err := time.Parse("Monday, Jan 02, 2006", extractDateString(title))
+	pubDate, err := time.Parse("Monday, Jan 02, 2006", extractDateString(title))
 
 	if err != nil {
 		return nil, ErrTitleDateNotValid
@@ -115,14 +115,31 @@ func extractDateString(s string) string {
 
 type BluesnewsClient struct {
 	fetcher BluesnewsFetcher
+	parser  BluesnewsParser
 }
 
-func (bc BluesnewsClient) GetArticleFromDate(date time.Time) (Article, error) {
-	content, err := bc.fetcher.FetchArticle(date)
+func NewBluesnewsClient() BluesnewsClient {
+	return BluesnewsClient{
+		fetcher: BluesnewsFetcher{fetchFn: GetBluenewsHTTPResponse},
+		parser:  BluesnewsParser{},
+	}
+}
 
+func (bc *BluesnewsClient) GetArticleFromDate(date time.Time) (*Article, error) {
+	fullHtml, err := bc.fetcher.FetchArticle(date)
 	if err != nil {
-		return Article{}, err
+		return nil, err
 	}
 
-	return Article{Title: content, PubDate: date}, nil
+	articleHtml, err := bc.parser.GetHTMLArticleByDate(date, fullHtml)
+	if err != nil {
+		return nil, err
+	}
+
+	article, err := bc.parser.ParseHTML(strings.NewReader(articleHtml))
+	if err != nil {
+		return nil, err
+	}
+
+	return article, nil
 }
