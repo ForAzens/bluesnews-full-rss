@@ -11,8 +11,6 @@ COPY ./internal ./internal
 
 RUN CGO_ENABLED=0 go build -o bluesnews-full-rss
 
-RUN mkdir -p articles
-
 FROM debian:bullseye-slim
 
 # Install cron
