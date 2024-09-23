@@ -38,19 +38,19 @@ func main() {
 		for i := lastDays; i >= 0; i-- {
 			date := time.Now().AddDate(0, 0, -i)
 			log.Printf("Fetching articles for date: %v", date)
+			client := bluesnews.NewBluesnewsClient()
 
-			articles := bluesnews.FromDate(date)
-			log.Println("number of articles")
-			log.Println(len(articles))
+			article, err := client.GetArticleFromDate(date)
 
-			for i := range articles {
-				article := articles[i]
+			if err != nil {
+				log.Printf("Failed to get article from date %v: %v", date, err)
+				continue
+			}
 
-				err := persistenceProvider.Save(article)
-				if err != nil {
-					log.Printf("Failed to save article for %v", article.PubDate)
-					log.Println(err)
-				}
+			err = persistenceProvider.Save(*article)
+			if err != nil {
+				log.Printf("Failed to save article for %v", article.PubDate)
+				log.Println(err)
 			}
 		}
 

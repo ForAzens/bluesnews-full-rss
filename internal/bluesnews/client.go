@@ -1,90 +1,145 @@
 package bluesnews
 
 import (
+	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
-var BASE_URL = "https://www.bluesnews.com"
+var ErrInvalidStatusCode = errors.New("Bluesnews returned a non-200 status code.")
 
-func removeTreeClasses(s *goquery.Selection) {
-	childrenSel := s.Children()
+type BluesnewsFetchArticleFn func(date time.Time) (*http.Response, error)
 
-	for i := range childrenSel.Nodes {
-		sel := childrenSel.Eq(i)
-		sel.RemoveClass()
-
-		removeTreeClasses(sel)
-	}
+type BluesnewsFetcher struct {
+	fetchFn BluesnewsFetchArticleFn
 }
 
-func fixLinks(s *goquery.Selection) {
-	s.Find("a").Each(func(i int, sel *goquery.Selection) {
-		href, ok := sel.Attr("href")
-		if ok {
-
-			if href[0] == '/' {
-				sel.SetAttr("href", BASE_URL+href)
-			}
-
-		}
-	})
-}
-
-func parseBody(rc io.ReadCloser) []Article {
-	var articles []Article
-
-	doc, err := goquery.NewDocumentFromReader(rc)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	articleSelection := doc.Find("h1.pill + div.row.no-gutter")
-	removeTreeClasses(articleSelection)
-	fixLinks(articleSelection)
-
-	log.Printf("Number of articles scraped: %d", len(articleSelection.Nodes))
-
-	for i := range articleSelection.Nodes {
-		s := articleSelection.Eq(i)
-
-		removeTreeClasses(s)
-		fixLinks(s)
-
-		titleSelection := s.Prev()
-		title := titleSelection.Text()
-
-		content, err := s.Html()
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-
-		articles = append(articles, Article{
-			Title:       title,
-			PubDate:     time.Now(),
-			ContentHTML: content,
-		})
-	}
-
-	log.Printf("Final number of articles: %d", len(articles))
-
-	return articles
-}
-
-func FromDate(date time.Time) []Article {
+func GetBluenewsHTTPResponse(date time.Time) (*http.Response, error) {
 	stringDate := fmt.Sprintf("%d%02d%02d", date.Year(), date.Month(), date.Day())
 	url := fmt.Sprintf("https://www.bluesnews.com/cgi-bin/blammo.pl?mode=archive&display=%s", stringDate)
 
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer resp.Body.Close()
+	return http.Get(url)
+}
 
-	return parseBody(resp.Body)
+func (f BluesnewsFetcher) FetchArticle(date time.Time) (string, error) {
+	resp, err := f.fetchFn(date)
+
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode >= 400 {
+		return "", ErrInvalidStatusCode
+	}
+
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
+}
+
+var ErrTitleDateNotValid = errors.New("The date in the title is not valid.")
+var ErrArticleNotFound = errors.New("The article with the specific date was not found.")
+
+type BluesnewsParser struct{}
+
+func (p *BluesnewsParser) ParseHTML(htmlReader io.Reader) (*Article, error) {
+	doc, err := goquery.NewDocumentFromReader(htmlReader)
+
+	if err != nil {
+		return nil, err
+	}
+
+	titleSelection := doc.Find("h1.pill")
+	title := titleSelection.Text()
+	pubDate, err := time.Parse("Monday, Jan 02, 2006", extractDateString(title))
+
+	if err != nil {
+		return nil, ErrTitleDateNotValid
+	}
+
+	content, _ := titleSelection.Next().Html()
+
+	return &Article{Title: title, PubDate: pubDate, ContentHTML: content}, nil
+}
+
+func (p *BluesnewsParser) GetHTMLArticleByDate(date time.Time, html string) (string, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+
+	if err != nil {
+		return "", err
+	}
+
+	titleSelection := doc.Find("h1.pill")
+
+	for i := range titleSelection.Nodes {
+		sel := titleSelection.Eq(i)
+		title := sel.Text()
+		pubDate, err := time.Parse("Monday, Jan 02, 2006", extractDateString(title))
+
+		if err != nil {
+			continue
+		}
+
+		if pubDate.Format("2006-01-02") == date.Format("2006-01-02") {
+			titleHtml, _ := goquery.OuterHtml(sel)
+			contentHtml, _ := goquery.OuterHtml(sel.Next())
+			return titleHtml + contentHtml, nil
+		}
+	}
+
+	return "", ErrArticleNotFound
+
+}
+
+// This function will only works with title like this example:
+// Input: Saturday, Sep 07, 2024 Some day Blablabla
+// Output: Saturday, Sep 07, 2024
+func extractDateString(s string) string {
+	parts := strings.SplitN(s, ",", 3)
+	if len(parts) < 3 {
+		return s
+	}
+
+	yearCleaned := strings.Split(parts[2], " ")[1]
+	return fmt.Sprintf("%s,%s, %s", parts[0], parts[1], yearCleaned)
+}
+
+type BluesnewsClient struct {
+	fetcher BluesnewsFetcher
+	parser  BluesnewsParser
+}
+
+func NewBluesnewsClient() BluesnewsClient {
+	return BluesnewsClient{
+		fetcher: BluesnewsFetcher{fetchFn: GetBluenewsHTTPResponse},
+		parser:  BluesnewsParser{},
+	}
+}
+
+func (bc *BluesnewsClient) GetArticleFromDate(date time.Time) (*Article, error) {
+	fullHtml, err := bc.fetcher.FetchArticle(date)
+	if err != nil {
+		return nil, err
+	}
+
+	articleHtml, err := bc.parser.GetHTMLArticleByDate(date, fullHtml)
+	if err != nil {
+		return nil, err
+	}
+
+	article, err := bc.parser.ParseHTML(strings.NewReader(articleHtml))
+	if err != nil {
+		return nil, err
+	}
+
+	return article, nil
 }
