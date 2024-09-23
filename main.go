@@ -18,6 +18,7 @@ var ARTICLES_PATH = os.Getenv("BLUENEWS_RSS_ARTICLES_PATH")
 func main() {
 	var mode string
 	var lastDays int
+
 	flag.StringVar(&mode, "mode", "serve", "Different modes to use: 'serve' or 'fetch'")
 	flag.IntVar(&lastDays, "lastDays", 7, "To retrieve the articles of the last X days. Default: 7")
 
